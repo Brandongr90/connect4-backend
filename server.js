@@ -30,6 +30,10 @@ io.on('connection', (socket) => {
             socket.join(roomName);
             io.to(roomName).emit('roomUpdate', getRoomData(roomName));
             io.emit('roomList', Array.from(rooms.keys()));
+
+            // Emitir evento de confirmación de creación de sala
+            socket.emit('roomCreated', roomName);
+
             console.log('Room created:', roomName);
         } else {
             socket.emit('error', 'Room already exists');
@@ -40,11 +44,17 @@ io.on('connection', (socket) => {
     socket.on('joinRoom', (roomName, playerName) => {
         if (rooms.has(roomName)) {
             const room = rooms.get(roomName);
-            if (room.players.length < 2) {
-                room.players.push({ id: socket.id, name: playerName });
-                socket.join(roomName);
-            } else {
-                room.spectators.push({ id: socket.id, name: playerName });
+
+            // Verificar si el jugador ya está en la sala antes de agregarlo
+            const playerExists = room.players.some(p => p.id === socket.id);
+            const spectatorExists = room.spectators.some(s => s.id === socket.id);
+
+            if (!playerExists && !spectatorExists) {
+                if (room.players.length < 2) {
+                    room.players.push({ id: socket.id, name: playerName });
+                } else {
+                    room.spectators.push({ id: socket.id, name: playerName });
+                }
                 socket.join(roomName);
             }
             io.to(roomName).emit('roomUpdate', getRoomData(roomName));
@@ -79,11 +89,15 @@ io.on('connection', (socket) => {
             socket.leave(roomName);
             if (room.players.length === 0 && room.spectators.length === 0) {
                 rooms.delete(roomName);
-                io.emit('roomList', Array.from(rooms.keys()));
             } else {
                 io.to(roomName).emit('roomUpdate', getRoomData(roomName));
             }
+            io.emit('roomList', Array.from(rooms.keys()));
         }
+    });
+
+    socket.on('getRoomList', () => {
+        socket.emit('roomList', Array.from(rooms.keys()));
     });
 
     socket.on('disconnect', () => {
