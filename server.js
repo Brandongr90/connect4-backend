@@ -6,6 +6,7 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 
+const players = {};
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -18,6 +19,16 @@ const rooms = new Map();
 
 io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
+
+    socket.on('newPlayer', (nickname) => {
+        players[socket.id] = nickname;
+        io.emit('playerList', Object.values(players)); // Emitir lista de jugadores conectados
+    });
+
+    socket.on('disconnect', () => {
+        delete players[socket.id];
+        io.emit('playerList', Object.values(players)); // Emitir lista de jugadores conectados
+    });
 
     socket.on('createRoom', (roomName, playerName) => {
         console.log('Attempt to create room:', roomName, 'by player:', playerName);
